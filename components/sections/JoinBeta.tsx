@@ -6,6 +6,7 @@ import { Download, Check, Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { SITE } from "@/lib/constants";
+import { recordDownload } from "@/lib/record-download";
 import { fadeUp, viewportOnce } from "@/lib/animations";
 
 type Status = "idle" | "loading" | "done";
@@ -74,6 +75,7 @@ export function JoinBeta() {
                 as="a"
                 href={SITE.apkUrl}
                 download={SITE.apkFileName}
+                onClick={recordDownload}
                 size="lg"
                 className="w-full sm:w-auto"
               >

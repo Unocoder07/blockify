@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Download } from "lucide-react";
 import { NAV_LINKS, SITE } from "@/lib/constants";
+import { recordDownload } from "@/lib/record-download";
 import { Button } from "@/components/ui/Button";
 import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ export function Navbar() {
             as="a"
             href={SITE.apkUrl}
             download={SITE.apkFileName}
+            onClick={recordDownload}
             size="sm"
           >
             <Download className="h-4 w-4" />
@@ -93,6 +95,7 @@ export function Navbar() {
                 as="a"
                 href={SITE.apkUrl}
                 download={SITE.apkFileName}
+                onClick={recordDownload}
                 className="mt-2 w-full"
               >
                 <Download className="h-4 w-4" />

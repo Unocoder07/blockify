@@ -1,81 +1,105 @@
-import { randomUUID } from "node:crypto";
-import { promises as fs } from "node:fs";
-import path from "node:path";
+import { Redis } from "@upstash/redis";
 
 export interface SiteMetrics {
   visits: number;
+  downloads: number;
   updatedAt: string | null;
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DATA_FILE = path.join(DATA_DIR, "site-metrics.json");
+const VISITS_KEY = "blockify:visits";
+const DOWNLOADS_KEY = "blockify:downloads";
 
-let writeChain: Promise<unknown> = Promise.resolve();
+/**
+ * Upstash Redis is used as the persistent, serverless-friendly counter store.
+ * On Vercel the filesystem is ephemeral, so a file-based store would reset on
+ * every request/deploy — Redis survives across all of them.
+ *
+ * When the env vars are missing (typical local dev without a Redis instance)
+ * we fall back to in-memory counters so the app still runs. These reset on
+ * server restart, which is fine for development.
+ */
+const redis =
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+    ? Redis.fromEnv()
+    : null;
 
-function sanitizeMetrics(value: unknown): SiteMetrics {
-  if (typeof value !== "object" || value === null) {
-    return { visits: 0, updatedAt: null };
-  }
-
-  const raw = value as Partial<SiteMetrics>;
-  const visits =
-    typeof raw.visits === "number" && Number.isFinite(raw.visits)
-      ? Math.max(0, Math.floor(raw.visits))
-      : 0;
-  const updatedAt = typeof raw.updatedAt === "string" ? raw.updatedAt : null;
-
-  return { visits, updatedAt };
-}
-
-async function readMetrics(): Promise<SiteMetrics> {
-  try {
-    const raw = await fs.readFile(DATA_FILE, "utf8");
-    return sanitizeMetrics(JSON.parse(raw));
-  } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
-      return { visits: 0, updatedAt: null };
-    }
-    console.error("[site-metrics] failed to read store:", err);
-    return { visits: 0, updatedAt: null };
-  }
-}
-
-async function writeMetrics(metrics: SiteMetrics): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  const tmp = `${DATA_FILE}.${randomUUID()}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(metrics, null, 2), "utf8");
-  await fs.rename(tmp, DATA_FILE);
-}
-
-function mutate<T>(fn: (metrics: SiteMetrics) => Promise<T> | T): Promise<T> {
-  const next = writeChain.then(async () => {
-    const metrics = await readMetrics();
-    return fn(metrics);
-  });
-  writeChain = next.then(
-    () => undefined,
-    () => undefined
+if (!redis) {
+  console.warn(
+    "[site-metrics] UPSTASH_REDIS_REST_URL/TOKEN not set — using in-memory counters (resets on restart)."
   );
-  return next;
+}
+
+// In-memory fallback state (dev only).
+const memory: SiteMetrics = { visits: 0, downloads: 0, updatedAt: null };
+
+function toCount(value: unknown): number {
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseInt(value, 10)
+        : 0;
+  return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
 }
 
 export async function getSiteMetrics(): Promise<SiteMetrics> {
-  return readMetrics();
+  if (!redis) {
+    return { ...memory };
+  }
+
+  try {
+    const [visits, downloads] = await redis.mget<[unknown, unknown]>(
+      VISITS_KEY,
+      DOWNLOADS_KEY
+    );
+    return {
+      visits: toCount(visits),
+      downloads: toCount(downloads),
+      updatedAt: null,
+    };
+  } catch (err) {
+    console.error("[site-metrics] failed to read metrics:", err);
+    return { visits: 0, downloads: 0, updatedAt: null };
+  }
 }
 
 export async function recordSiteVisit(nowIso: string): Promise<SiteMetrics> {
-  return mutate((metrics) => {
-    const next: SiteMetrics = {
-      visits: metrics.visits + 1,
-      updatedAt: nowIso,
-    };
-    return writeMetrics(next).then(() => next);
-  });
+  if (!redis) {
+    memory.visits += 1;
+    memory.updatedAt = nowIso;
+    return { ...memory };
+  }
+
+  try {
+    const visits = await redis.incr(VISITS_KEY);
+    const downloads = toCount(await redis.get(DOWNLOADS_KEY));
+    return { visits: toCount(visits), downloads, updatedAt: nowIso };
+  } catch (err) {
+    console.error("[site-metrics] failed to record visit:", err);
+    return getSiteMetrics();
+  }
+}
+
+export async function recordDownload(nowIso: string): Promise<SiteMetrics> {
+  if (!redis) {
+    memory.downloads += 1;
+    memory.updatedAt = nowIso;
+    return { ...memory };
+  }
+
+  try {
+    const downloads = await redis.incr(DOWNLOADS_KEY);
+    const visits = toCount(await redis.get(VISITS_KEY));
+    return { visits, downloads: toCount(downloads), updatedAt: nowIso };
+  } catch (err) {
+    console.error("[site-metrics] failed to record download:", err);
+    return getSiteMetrics();
+  }
 }
 
 export function toPublicSiteMetrics(metrics: SiteMetrics) {
   return {
     visits: metrics.visits,
-    downloads: metrics.visits,
+    downloads: metrics.downloads,
   };
 }

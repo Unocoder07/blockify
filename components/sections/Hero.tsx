@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { PhoneMockup } from "@/components/ui/PhoneMockup";
 import { APP_SCREENS } from "@/components/ui/AppScreens";
 import { SITE } from "@/lib/constants";
+import { recordDownload } from "@/lib/record-download";
 import { fadeUp, staggerContainer } from "@/lib/animations";
 
 const HomeScreen = APP_SCREENS.home;
@@ -87,6 +88,7 @@ export function Hero() {
               as="a"
               href={SITE.apkUrl}
               download={SITE.apkFileName}
+              onClick={recordDownload}
               size="lg"
               className="w-full sm:w-auto"
             >
