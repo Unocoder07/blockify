@@ -10,6 +10,14 @@ const VISITS_KEY = "blockify:visits";
 const DOWNLOADS_KEY = "blockify:downloads";
 
 /**
+ * Baseline shown on the site before any real activity. Redis stores the true
+ * event count starting from 0; the public value is BASE + real count, so the
+ * counters start at 100 and grow from there with each visit / download.
+ */
+const BASE_VISITS = 100;
+const BASE_DOWNLOADS = 100;
+
+/**
  * Upstash Redis is used as the persistent, serverless-friendly counter store.
  * On Vercel the filesystem is ephemeral, so a file-based store would reset on
  * every request/deploy — Redis survives across all of them.
@@ -99,7 +107,7 @@ export async function recordDownload(nowIso: string): Promise<SiteMetrics> {
 
 export function toPublicSiteMetrics(metrics: SiteMetrics) {
   return {
-    visits: metrics.visits,
-    downloads: metrics.downloads,
+    visits: BASE_VISITS + metrics.visits,
+    downloads: BASE_DOWNLOADS + metrics.downloads,
   };
 }
