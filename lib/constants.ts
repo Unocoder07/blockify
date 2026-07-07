@@ -66,8 +66,8 @@ export interface Stat {
 }
 
 export const STATS: Stat[] = [
-  { label: "Website Visits", value: 0, suffix: "+", metric: "visits" },
-  { label: "Beta Downloads", value: 0, suffix: "+", metric: "downloads" },
+  { label: "Website Visits", value: 200, suffix: "+", metric: "visits" },
+  { label: "Beta Downloads", value: 100, suffix: "+", metric: "downloads" },
   { label: "Focus Sessions Completed", value: 1240, suffix: "+" },
   { label: "Hours Saved", value: 420, suffix: "+" },
 ];
