@@ -21,9 +21,11 @@ export const SITE = {
   description:
     "Block distracting apps, build better habits, and stay focused with AI-powered productivity.",
   url: "https://blockify.app", // TODO: replace with production domain
-  // The beta APK is served statically from landingpage/public/.
-  // Drop the built file at landingpage/public/Blockify-beta.apk.
-  apkUrl: "/Blockify-beta.apk",
+  // The beta APK is too large (113 MB) to bundle with the Vercel deploy, so it
+  // is hosted on GitHub Releases. Upload a new APK as a release asset and update
+  // the tag in this URL when publishing a new build.
+  apkUrl:
+    "https://github.com/Unocoder07/blockify/releases/download/v1.0-beta/Blockify-beta.apk",
   // Filename suggested to the browser when downloading.
   apkFileName: "blockify-beta.apk",
   playStoreUrl: "#play-store",
